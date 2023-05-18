@@ -11,6 +11,7 @@ const inputElevation = document.querySelector('.form__input--elevation');
 class Workout {
   date = new Date();
   id = (Date.now() + '').slice(-10);
+  clicks = 0;
 
   constructor(coords, distance, duration) {
     this.coords = coords; // [lat, lon]
@@ -26,37 +27,9 @@ class Workout {
       months[this.date.getMonth()]
     } ${this.date.getDate()}`;
   }
-}
 
-class Running extends Workout {
-  type = 'running';
-  constructor(coords, distance, duration, cadence) {
-    super(coords, distance, duration);
-    this.cadence = cadence;
-    this.calcPace();
-    this._setDescription();
-  }
-
-  calcPace() {
-    // min/km
-    this.pace = this.duration / this.distance;
-    return this.pace;
-  }
-}
-
-class Cycling extends Workout {
-  type = 'cycling';
-  constructor(coords, distance, duration, elevationGain) {
-    super(coords, distance, duration);
-    this.elevationGain = elevationGain;
-    this.calcSpeed();
-    this._setDescription();
-  }
-
-  calcSpeed() {
-    // km/h
-    this.speed = this.distance / (this.duration / 60);
-    return this.speed;
+  _click() {
+    this.clicks++;
   }
 }
 
@@ -66,11 +39,19 @@ class App {
   #map;
   #le;
   #workouts = [];
+  #mapZoomLevel = 13;
 
   constructor() {
+    // get user's position
     this._getPosition();
+
+    // get data from local storage
+    this._getLocalStorage();
+
+    // attach event handlers
     form.addEventListener('submit', this._newWorkout.bind(this));
     inputType.addEventListener('change', this._toggleElevationField);
+    containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
   }
 
   _getPosition() {
@@ -91,7 +72,7 @@ class App {
 
     const coords = [latitude, longitude];
 
-    this.#map = L.map('map').setView(coords, 13);
+    this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution:
@@ -99,6 +80,10 @@ class App {
     }).addTo(this.#map);
 
     this.#map.on('click', this._showForm.bind(this));
+
+    this.#workouts.forEach(work => {
+      this._renderWorkoutMarker(work);
+    });
   }
 
   _showForm(mapE) {
@@ -169,7 +154,6 @@ class App {
     }
 
     // push the new object to workout array
-    console.log(workout);
     this.#workouts.push(workout);
 
     // render workout on map w marker
@@ -180,6 +164,9 @@ class App {
 
     // hide form and clear input fields
     this._hideForm();
+
+    // set local storage to all workouts
+    this._setLocalStorage();
   }
 
   _renderWorkoutMarker(workout) {
@@ -249,6 +236,74 @@ class App {
       `;
 
     form.insertAdjacentHTML('afterend', html);
+  }
+
+  _moveToPopup(e) {
+    const workoutEl = e.target.closest('.workout');
+    if (!workoutEl) return;
+
+    const workout = this.#workouts.find(
+      work => work.id === workoutEl.dataset.id
+    );
+
+    this.#map.setView(workout.coords, this.#mapZoomLevel, {
+      animate: true,
+      pan: { duration: 1 },
+    });
+
+    // using the public interface
+    //workout._click();
+  }
+
+  _setLocalStorage() {
+    localStorage.setItem('workout', JSON.stringify(this.#workouts));
+  }
+
+  _getLocalStorage() {
+    const data = JSON.parse(localStorage.getItem('workout'));
+
+    if (!data) return;
+    this.#workouts = data;
+    this.#workouts.forEach(work => {
+      this._renderWorkout(work);
+    });
+  }
+
+  reset() {
+    localStorage.removeItem('workout');
+    location.reload();
+  }
+}
+
+class Running extends Workout {
+  type = 'running';
+  constructor(coords, distance, duration, cadence) {
+    super(coords, distance, duration);
+    this.cadence = cadence;
+    this.calcPace();
+    this._setDescription();
+  }
+
+  calcPace() {
+    // min/km
+    this.pace = this.duration / this.distance;
+    return this.pace;
+  }
+}
+
+class Cycling extends Workout {
+  type = 'cycling';
+  constructor(coords, distance, duration, elevationGain) {
+    super(coords, distance, duration);
+    this.elevationGain = elevationGain;
+    this.calcSpeed();
+    this._setDescription();
+  }
+
+  calcSpeed() {
+    // km/h
+    this.speed = this.distance / (this.duration / 60);
+    return this.speed;
   }
 }
 
