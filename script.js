@@ -37,7 +37,7 @@ class Workout {
 // APPLICATION ARCHITECTURE
 class App {
   #map;
-  #le;
+  #localEvent;
   #workouts = [];
   #mapZoomLevel = 13;
 
@@ -56,12 +56,7 @@ class App {
 
   _getPosition() {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        this._loadMap.bind(this),
-        function () {
-          alert(`could not get your position`);
-        }
-      );
+      navigator.geolocation.getCurrentPosition(this._loadMap.bind(this));
     }
   }
 
@@ -72,22 +67,22 @@ class App {
 
     const coords = [latitude, longitude];
 
-    this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
+    this.#map = L.map('map')
+      .setView(coords, this.#mapZoomLevel)
+      .on('click', this._showForm.bind(this));
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.#map);
 
-    this.#map.on('click', this._showForm.bind(this));
-
     this.#workouts.forEach(work => {
       this._renderWorkoutMarker(work);
     });
   }
 
-  _showForm(mapE) {
-    this.#le = mapE;
+  _showForm(mapEvent) {
+    this.#localEvent = mapEvent;
     form.classList.remove('hidden');
     inputDistance.focus();
   }
@@ -123,7 +118,7 @@ class App {
     let workout;
 
     // display marker
-    const { lat, lng } = this.#le.latlng;
+    const { lat, lng } = this.#localEvent.latlng;
 
     // if Running: create new Running
     if (type === 'running') {
